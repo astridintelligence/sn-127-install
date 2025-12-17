@@ -1,0 +1,47 @@
+services:
+  redis:
+    image: redis:7
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  validator:
+    image: astrid-intelligence/astrid-validators:latest
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+    env_file:
+      - .env
+    ports:
+      - "4000:4000"
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      API_URL: ${API_URL:-https://api.astrid.global/v1}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      VALIDATOR_MNEMONIC: ${VALIDATOR_MNEMONIC}
+      HEARTBEAT_INTERVAL_MS: ${HEARTBEAT_INTERVAL_MS:-15000}
+      MAX_CONCURRENT_TASKS: ${MAX_CONCURRENT_TASKS:-2}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /root/astrid/sandbox-workspace:/sandbox-data
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+  watchtower:
+    profiles: ["ops"]
+    image: containrrr/watchtower
+    restart: always
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: --interval 30 --cleanup --label-enable
+
+volumes:
+  redis-data:

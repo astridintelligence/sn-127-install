@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+REPO_OWNER="astridintelligence"
+REPO_NAME="sn-127-install"
+DEFAULT_REF="${ASTRID_DEFAULT_REF:-master}"
+ASTRID_DIR="${ASTRID_DIR:-$HOME/astrid}"
+ASTRID_WORKSPACE_DIR="${ASTRID_WORKSPACE_DIR:-$HOME/astrid/sandbox-workspace}"
+ASTRID_WORKSPACE_CACHE_DIR="${ASTRID_WORKSPACE_CACHE_DIR:-$HOME/astrid/sandbox-workspace/cache}"
+VERSION_FILE="$ASTRID_DIR/.astrid-version"
+
+mkdir -p "$ASTRID_DIR"
+mkdir -p "$ASTRID_WORKSPACE_DIR"
+mkdir -p "$ASTRID_WORKSPACE_CACHE_DIR"
+cd "$ASTRID_DIR"
+
+need_cmd() { command -v "$1" >/dev/null 2>&1 || { echo "Missing $1. Install it first."; exit 1; }; }
+
+need_cmd curl
+need_cmd docker
+need_cmd node
+need_cmd npm
+need_cmd npx
+
+if ! docker compose version >/dev/null 2>&1; then
+  echo "Docker Compose plugin not found. Install Docker Desktop or the compose plugin."
+  exit 1
+fi
+
+raw_url() {
+  printf "https://raw.githubusercontent.com/%s/%s/%s/%s" "$REPO_OWNER" "$REPO_NAME" "$1" "$2"
+}
+
+current_ref() {
+  if [ -f "$VERSION_FILE" ]; then
+    tr -d ' \n\r' < "$VERSION_FILE"
+  else
+    echo "$DEFAULT_REF"
+  fi
+}
+
+set_ref() { printf "%s\n" "$1" > "$VERSION_FILE"; }
+
+REF="$(current_ref)"
+
+echo "Installing Astrid Intelligence Validator (ref: $REF)..."
+
+curl -sSfL "$(raw_url "$REF" "docker-compose.yml")" -o docker-compose.yml
+sedi() { if sed --version >/dev/null 2>&1; then sed -i "$@"; else sed -i '' "$@"; fi; }
+sedi '/^version:/d' docker-compose.yml
+
+if [ ! -f .env ]; then
+  umask 077
+  cat > .env <<'EOF'
+VALIDATOR_MNEMONIC=""
+NODE_ENV=production
+API_URL=https://api.astrid.global/v1
+REDIS_URL=redis://redis:6379
+HEARTBEAT_INTERVAL_MS=15000
+MAX_CONCURRENT_TASKS=2
+EXCHANGE_MEXC=""
+SANDBOX_WORKSPACE_FOLDER=/root/astrid/sandbox-workspace
+DOCKER_SOCKET_PATH=/var/run/docker.sock
+DEVELOPMENT_ENABLED=false
+DEVELOPMENT_CLEAN_ON_END=true
+CACHE_FOLDER=/root/astrid/sandbox-workspace/cache
+EOF
+  echo "Created default .env"
+fi
+
+curl -sSfL "$(raw_url "$REF" "astrid")" -o /tmp/astrid
+chmod +x /tmp/astrid
+sudo mv /tmp/astrid /usr/local/bin/astrid
+
+set_ref "$REF"
+
+echo "Installation complete."
+echo "Next steps:"
+echo "  cd $ASTRID_DIR"
+echo "  astrid set --VALIDATOR_MNEMONIC \"your mnemonic here\""
+echo "  astrid set --EXCHANGE_MEXC \"apiKey:yourApiKey|apiSecret:yourApiSecret\""
+echo "  astrid start"

@@ -1,0 +1,154 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ASTRID_DIR="${ASTRID_DIR:-$HOME/astrid}"
+COMPOSE_CMD="docker compose"
+ENV_FILE="${ASTRID_DIR}/.env"
+COMPOSE_FILE="${ASTRID_DIR}/docker-compose.yml"
+REPO_OWNER="astridintelligence"
+REPO_NAME="sn-127-install"
+DEFAULT_REF="${ASTRID_DEFAULT_REF:-master}"
+VERSION_FILE="${ASTRID_DIR}/.astrid-version"
+
+die() { echo "$*" 1>&2; exit 1; }
+ensure_files() { [ -f "$COMPOSE_FILE" ] || die "Missing docker-compose.yml. Run the install first."; }
+sedi() { if sed --version >/dev/null 2>&1; then sed -i "$@"; else sed -i '' "$@"; fi; }
+raw_url() { printf "https://raw.githubusercontent.com/%s/%s/%s/%s" "$REPO_OWNER" "$REPO_NAME" "$1" "$2"; }
+
+current_ref() {
+  if [ -f "$VERSION_FILE" ]; then tr -d ' \n\r' < "$VERSION_FILE"; else echo "$DEFAULT_REF"; fi
+}
+set_ref() { mkdir -p "$ASTRID_DIR"; printf "%s\n" "$1" > "$VERSION_FILE"; }
+
+usage() {
+  cat <<EOF
+Usage:
+  astrid start
+  astrid stop
+  astrid set --KEY "value"
+  astrid status
+  astrid health
+  astrid monitor [validator|redis|watchtower]
+  astrid update [--to <ref|sha>] [--pull] [--restart]
+  astrid update-watchtower
+  astrid version
+EOF
+}
+
+# ----- Basic env & config -----
+ensure_env() { mkdir -p "$ASTRID_DIR"; [ -f "$ENV_FILE" ] || { umask 077; touch "$ENV_FILE"; }; }
+
+set_kv() {
+  local raw="$1" val="$2" key="${raw#--}"
+  [ -n "$key" ] || die "Empty key"
+  ensure_env
+  grep -qE "^${key}=" "$ENV_FILE" && { sedi "s|^${key}=.*||" "$ENV_FILE"; sedi "/^$/d" "$ENV_FILE"; }
+  printf '%s="%s"\n' "$key" "$val" >> "$ENV_FILE"
+  echo "Set $key"
+}
+
+cmd_set() {
+  [ $# -ge 2 ] || die "astrid set --KEY \"value\""
+  while [ $# -gt 0 ]; do
+    k="$1"; shift; v="${1:-}"
+    [ -n "$v" ] && [[ "$v" != --* ]] || die "Missing value for $k"
+    set_kv "$k" "$v"; shift || true
+  done
+  echo "Updated $ENV_FILE"
+}
+
+# ----- Container helpers -----
+cid_of() { $COMPOSE_CMD -f "$COMPOSE_FILE" -p astrid ps -q "$1" 2>/dev/null || true; }
+state_of() { local cid="$1"; [ -n "$cid" ] || { echo "not-running"; return; }; docker inspect -f '{{.State.Status}}' "$cid" 2>/dev/null || echo "unknown"; }
+health_of() { local cid="$1"; [ -n "$cid" ] || { echo "n/a"; return; }; docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$cid" 2>/dev/null || echo "unknown"; }
+
+# ----- Core Commands -----
+cmd_status() {
+  ensure_files; cd "$ASTRID_DIR"
+  local rcid=$(cid_of redis) vcid=$(cid_of validator) wcid=$(cid_of watchtower)
+  printf "redis      state=%s  health=%s\n" "$(state_of "$rcid")" "$(health_of "$rcid")"
+  printf "validator  state=%s  health=%s\n" "$(state_of "$vcid")" "$(health_of "$vcid")"
+  printf "watchtower state=%s  health=%s\n" "$(state_of "$wcid")" "$(health_of "$wcid")"
+}
+
+cmd_health() {
+  ensure_files; cd "$ASTRID_DIR"
+  local rcid=$(cid_of redis) vcid=$(cid_of validator)
+  echo "Redis: $(state_of "$rcid") / $(health_of "$rcid")"
+  echo "Validator: $(state_of "$vcid")"
+  if [ -n "$vcid" ]; then
+    docker logs --tail 200 "$vcid" 2>/dev/null | grep -iE 'heartbeat|ready|connected' | tail -n 15 || echo "no heartbeat lines"
+  fi
+}
+
+cmd_monitor() {
+  ensure_files; cd "$ASTRID_DIR"
+  local svc="${1:-validator}"
+  case "$svc" in validator|redis|watchtower) ;; *) die "Unknown service: $svc";; esac
+  $COMPOSE_CMD -p astrid logs -f --tail 100 "$svc"
+}
+
+cmd_start() { ensure_files; cd "$ASTRID_DIR"; $COMPOSE_CMD -p astrid --profile ops up -d; echo "Started"; }
+cmd_stop() { ensure_files; cd "$ASTRID_DIR"; $COMPOSE_CMD -p astrid down; echo "Stopped"; }
+
+# ----- Update / Version -----
+install_cli_from_ref() { local tmp; tmp=$(mktemp); curl -sSfL "$(raw_url "$1" "astrid")" -o "$tmp"; chmod +x "$tmp"; sudo mv "$tmp" /usr/local/bin/astrid; echo "CLI updated from $1"; }
+refresh_install_from_ref() { curl -sSfL "$(raw_url "$1" "install")" -o "$ASTRID_DIR/install"; chmod +x "$ASTRID_DIR/install"; echo "install script updated"; }
+refresh_compose_from_ref() { curl -sSfL "$(raw_url "$1" "docker-compose.yml")" -o "$COMPOSE_FILE"; sedi '/^version:/d' "$COMPOSE_FILE"; echo "compose updated"; }
+
+cmd_update() {
+  local ref="" do_pull=0 do_restart=0
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --to) shift; ref="${1:-}"; [ -n "$ref" ] || die "Missing value for --to";;
+      --pull) do_pull=1;;
+      --restart) do_restart=1;;
+      *) die "Unknown flag: $1";;
+    esac; shift || true
+  done
+
+  local target_ref="${ref:-$(current_ref)}"
+  set_ref "$target_ref"
+
+  install_cli_from_ref "$target_ref"
+  refresh_install_from_ref "$target_ref"
+  refresh_compose_from_ref "$target_ref"
+
+  [ $do_pull -eq 1 ] && { ensure_files; cd "$ASTRID_DIR"; $COMPOSE_CMD -p astrid pull; }
+  [ $do_restart -eq 1 ] && { ensure_files; cd "$ASTRID_DIR"; $COMPOSE_CMD -p astrid --profile ops up -d; echo "Services restarted"; }
+
+  echo "Updated to ref: $(current_ref)"
+}
+
+cmd_update_watchtower() {
+  local cname
+  cname=$(docker ps --format '{{.Names}}' | grep watchtower || true)
+  [ -n "$cname" ] || die "No running watchtower container found"
+  docker exec "$cname" watchtower --run-once --cleanup --label-enable
+  echo "Watchtower update triggered manually."
+}
+
+cmd_version() {
+  echo "Pinned ref: $(current_ref)"
+  echo "Repo: $REPO_OWNER/$REPO_NAME"
+  echo "Project dir: $ASTRID_DIR"
+}
+
+main() {
+  sub="${1:-}"
+  case "$sub" in
+    start) shift; cmd_start "$@";;
+    stop) shift; cmd_stop "$@";;
+    set) shift; cmd_set "$@";;
+    status) shift; cmd_status "$@";;
+    health) shift; cmd_health "$@";;
+    monitor) shift; cmd_monitor "${1:-validator}";;
+    update) shift; cmd_update "$@";;
+    update-watchtower) shift; cmd_update_watchtower;;
+    version) shift; cmd_version;;
+    ""|help|-h|--help) usage;;
+    *) die "Unknown command: $sub";;
+  esac
+}
+
+main "$@"
