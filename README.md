@@ -14,7 +14,7 @@ bash -c "$(curl -sSfL https://raw.githubusercontent.com/astridintelligence/sn-12
 
 ## Components
 
-- **Validator** — Runs `astrid-intelligence/astrid-validators:latest`
+- **Validator** — Runs `astridintelligence/astrid-validator:latest`
 - **Redis** — Local instance for task coordination
 - **Watchtower** — Automatically updates containers every 30 seconds
 

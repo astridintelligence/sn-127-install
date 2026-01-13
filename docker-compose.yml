@@ -13,7 +13,7 @@ services:
       retries: 20
 
   validator:
-    image: astrid-intelligence/astrid-validators:latest
+    image: astridintelligence/astrid-validator:latest
     restart: unless-stopped
     depends_on:
       redis:
