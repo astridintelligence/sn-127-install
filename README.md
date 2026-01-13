@@ -47,13 +47,16 @@ bash -c "$(curl -sSfL https://raw.githubusercontent.com/astridintelligence/sn-12
 # 2. Set your validator mnemonic (required)
 astrid set --VALIDATOR_MNEMONIC "xxxx-xxxx-xxxx-xxxx-xxxx-xxxx-xxxx-xxxx-xxxx"
 
-# 3. Start the stack
+# 3. Set your validator display name (required)
+astrid set --VALIDATOR_DISPLAY_NAME "My Bittensor name"
+
+# 4. Start the stack
 astrid start
 
-# 4. Check status
+# 5. Check status
 astrid status
 
-# 5. View logs
+# 6. View logs
 astrid monitor validator
 ```
 
@@ -96,6 +99,7 @@ After install, your project directory (default: `$HOME/astrid`) will contain:
 The `.env` file (created in your project directory) supports:
 
 - `VALIDATOR_MNEMONIC` (required)
+- `VALIDATOR_DISPLAY_NAME` (required)
 - `NODE_ENV` (default: production)
 - `API_URL` (default: https://api.astrid.global/v1)
 - `REDIS_URL` (default: redis://redis:6379)
@@ -108,6 +112,7 @@ Example `.env`:
 
 ```env
 VALIDATOR_MNEMONIC="your mnemonic here"
+VALIDATOR_DISPLAY_NAME="validator name"
 NODE_ENV=production
 API_URL=https://api.astrid.global/v1
 REDIS_URL=redis://redis:6379

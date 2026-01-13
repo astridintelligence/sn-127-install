@@ -53,6 +53,7 @@ if [ ! -f .env ]; then
   umask 077
   cat > .env <<'EOF'
 VALIDATOR_MNEMONIC=""
+VALIDATOR_DISPLAY_NAME="127 Validator"
 NODE_ENV=production
 API_URL=https://api.astrid.global/v1
 REDIS_URL=redis://redis:6379
