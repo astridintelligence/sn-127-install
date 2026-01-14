@@ -53,7 +53,8 @@ if [ ! -f .env ]; then
   umask 077
   cat > .env <<'EOF'
 VALIDATOR_MNEMONIC=""
-VALIDATOR_DISPLAY_NAME="127 Validator"
+VALIDATOR_SS58_ADDRESS=""
+VALIDATOR_DISPLAY_NAME=""
 VALIDATOR_ICON_URL=""
 EXCHANGE_MEXC=""
 
@@ -67,6 +68,15 @@ DOCKER_SOCKET_PATH=/var/run/docker.sock
 DEVELOPMENT_ENABLED=false
 DEVELOPMENT_CLEAN_ON_END=true
 CACHE_FOLDER=/root/astrid/sandbox-workspace/cache
+
+BITTENSOR_ENABLED=true
+BITTENSOR_WS_ENDPOINT="wss://entrypoint-finney.opentensor.ai:443"
+BITTENSOR_NETUID=127
+BITTENSOR_VERSION_KEY=0
+BITTENSOR_WEIGHT_INTERVAL_MS=3600000
+
+VALIDATOR_SS58_FORMAT=42
+
 EOF
   echo "Created default .env"
 fi
@@ -81,6 +91,7 @@ echo "Installation complete."
 echo "Next steps:"
 echo "  cd $ASTRID_DIR"
 echo "  astrid set --VALIDATOR_MNEMONIC \"your mnemonic here\""
+echo "  astrid set --VALIDATOR_SS58_ADDRESS \"Your Validator SS58 Address\""
 echo "  astrid set --VALIDATOR_DISPLAY_NAME \"Your Validator Display Name\""
 echo "  astrid set --VALIDATOR_ICON_URL \"Your Validator Icon URL\""
 echo "  astrid set --EXCHANGE_MEXC \"apiKey:yourApiKey|apiSecret:yourApiSecret\""
