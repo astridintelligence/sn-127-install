@@ -54,12 +54,14 @@ if [ ! -f .env ]; then
   cat > .env <<'EOF'
 VALIDATOR_MNEMONIC=""
 VALIDATOR_DISPLAY_NAME="127 Validator"
+VALIDATOR_ICON_URL=""
+EXCHANGE_MEXC=""
+
 NODE_ENV=production
 API_URL=https://api.astrid.global/v1
 REDIS_URL=redis://redis:6379
 HEARTBEAT_INTERVAL_MS=15000
 MAX_CONCURRENT_TASKS=2
-EXCHANGE_MEXC=""
 SANDBOX_WORKSPACE_FOLDER=/root/astrid/sandbox-workspace
 DOCKER_SOCKET_PATH=/var/run/docker.sock
 DEVELOPMENT_ENABLED=false
@@ -79,5 +81,7 @@ echo "Installation complete."
 echo "Next steps:"
 echo "  cd $ASTRID_DIR"
 echo "  astrid set --VALIDATOR_MNEMONIC \"your mnemonic here\""
+echo "  astrid set --VALIDATOR_DISPLAY_NAME \"Your Validator Display Name\""
+echo "  astrid set --VALIDATOR_ICON_URL \"Your Validator Icon URL\""
 echo "  astrid set --EXCHANGE_MEXC \"apiKey:yourApiKey|apiSecret:yourApiSecret\""
 echo "  astrid start"
