@@ -39,7 +39,9 @@ EOF
 ensure_env() { mkdir -p "$ASTRID_DIR"; [ -f "$ENV_FILE" ] || { umask 077; touch "$ENV_FILE"; }; }
 
 set_kv() {
-  local raw="$1" val="$2" key="${raw#--}"
+  local raw="$1"
+  local val="$2"
+  local key="${raw#--}"
   [ -n "$key" ] || die "Empty key"
   ensure_env
   grep -qE "^${key}=" "$ENV_FILE" && { sedi "s|^${key}=.*||" "$ENV_FILE"; sedi "/^$/d" "$ENV_FILE"; }
