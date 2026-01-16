@@ -11,6 +11,9 @@ Run this command in your terminal:
 ```sh
 bash -c "$(curl -sSfL https://raw.githubusercontent.com/astridintelligence/sn-127-install/master/install)"
 ```
+## Source Code
+
+- **Repository:** [https://github.com/astridintelligence/sn-127](https://github.com/astridintelligence/sn-127)
 
 ## Components
 
