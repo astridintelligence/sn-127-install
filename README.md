@@ -15,6 +15,29 @@ bash -c "$(curl -sSfL https://raw.githubusercontent.com/astridintelligence/sn-12
 
 - **Repository:** [https://github.com/astridintelligence/sn-127](https://github.com/astridintelligence/sn-127)
 
+## Hardware Requirements
+
+This stack runs as a **Node.js application packaged as Docker images** (validator + Redis + Watchtower). You do not need to install Node.js locally as long as Docker is installed.
+
+### Minimum (works for most validators)
+
+- **Server type:** VPS or dedicated
+- **CPU:** 2 vCPU
+- **RAM:** **4 GB**
+- **Disk:** 30 GB SSD
+- **Network:** Stable connection, public IPv4 recommended
+
+### Recommended (more headroom, smoother updates)
+
+- **CPU:** 4 vCPU
+- **RAM:** **16 GB**
+- **Disk:** 60+ GB SSD
+
+### Notes
+
+- **Redis + Watchtower add overhead**, so 4 GB is the practical floor.
+- If your host is memory constrained, you may see container restarts under load. Move to 16 GB if you want fewer surprises.
+
 ## Components
 
 - **Validator** — Runs `astridintelligence/astrid-validator:latest`
