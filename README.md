@@ -70,8 +70,9 @@ astrid <command> [options]
 # 1. Install (if not already done)
 bash -c "$(curl -sSfL https://raw.githubusercontent.com/astridintelligence/sn-127-install/master/install)"
 
-# 2. Set your validator mnemonic (required)
+# 2. Set your validator mnemonic or secret seed (required)
 astrid set --VALIDATOR_MNEMONIC "xxxx-xxxx-xxxx-xxxx-xxxx-xxxx-xxxx-xxxx-xxxx"
+astrid set --VALIDATOR_SECRET_SEED "0x123..."
 
 # 3. Set your validator display name (required)
 astrid set --VALIDATOR_DISPLAY_NAME "My Bittensor name"
@@ -124,7 +125,7 @@ After install, your project directory (default: `$HOME/astrid`) will contain:
 
 The `.env` file (created in your project directory) supports:
 
-- `VALIDATOR_MNEMONIC` (required)
+- `VALIDATOR_MNEMONIC` or `VALIDATOR_SECRET_SEED` (required)
 - `VALIDATOR_DISPLAY_NAME` (required)
 - `NODE_ENV` (default: production)
 - `API_URL` (default: https://api.astrid.global/v1)
@@ -138,6 +139,7 @@ Example `.env`:
 
 ```env
 VALIDATOR_MNEMONIC="your mnemonic here"
+VALIDATOR_SECRET_SEED="0x123..."
 VALIDATOR_DISPLAY_NAME="validator name"
 NODE_ENV=production
 API_URL=https://api.astrid.global/v1
