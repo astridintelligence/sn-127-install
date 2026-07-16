@@ -1,8 +1,10 @@
 # Astrid Intelligence Validator Installer
 
-Automated setup and management for the Astrid Intelligence Validator stack.
+Automated setup and management for the Astrid Intelligence Validator (Bittensor Subnet 127).
 
-This installer sets up the validator, Redis, and Watchtower services, and provides a CLI tool (`astrid`) for easy management: start, stop, update, configure, and monitor your validator from the command line.
+This installer sets up the validator and Watchtower services, and provides a CLI tool (`astrid`) for easy management: start, stop, update, configure, and monitor your validator from the command line.
+
+The validator itself is a lightweight daemon: on an interval it fetches completed competitions from the Astrid Arena API, independently replays trade PnL, ranks the top 3 miners, and submits Bittensor weights on-chain. See the [source repository](https://github.com/astridintelligence/sn-127) for the full architecture.
 
 ## Quick Install
 
@@ -17,32 +19,28 @@ bash -c "$(curl -sSfL https://raw.githubusercontent.com/astridintelligence/sn-12
 
 ## Hardware Requirements
 
-This stack runs as a **Node.js application packaged as Docker images** (validator + Redis + Watchtower). You do not need to install Node.js locally as long as Docker is installed.
+This stack runs as a **Node.js application packaged as a Docker image** (validator + Watchtower). You do not need to install Node.js locally — only Docker is required.
 
-### Minimum (works for most validators)
+The validator is a single lightweight process: it polls the Arena API on an interval and occasionally signs/submits a Bittensor transaction. It does not run a task queue, a database, or sandboxed workloads, so requirements are modest.
+
+### Minimum
 
 - **Server type:** VPS or dedicated
-- **CPU:** 2 vCPU
-- **RAM:** **4 GB**
-- **Disk:** 30 GB SSD
+- **CPU:** 1 vCPU
+- **RAM:** 1–2 GB
+- **Disk:** 10 GB SSD
 - **Network:** Stable connection, public IPv4 recommended
 
-### Recommended (more headroom, smoother updates)
+### Recommended (headroom for smoother updates)
 
-- **CPU:** 4 vCPU
-- **RAM:** **16 GB**
-- **Disk:** 60+ GB SSD
-
-### Notes
-
-- **Redis + Watchtower add overhead**, so 4 GB is the practical floor.
-- If your host is memory constrained, you may see container restarts under load. Move to 16 GB if you want fewer surprises.
+- **CPU:** 2 vCPU
+- **RAM:** 4 GB
+- **Disk:** 20 GB SSD
 
 ## Components
 
 - **Validator** — Runs `astridintelligence/astrid-validator:latest`
-- **Redis** — Local instance for task coordination
-- **Watchtower** — Automatically updates containers every 30 seconds
+- **Watchtower** — Automatically updates the validator container every 30 seconds
 
 ## Usage
 
@@ -56,13 +54,13 @@ astrid <command> [options]
 
 ### Main Commands
 
-- `astrid start` — Start all services (validator, redis, watchtower)
+- `astrid start` — Start all services (validator, watchtower)
 - `astrid stop` — Stop all services
 - `astrid set --KEY "value" [--ANOTHER "value2"]` — Set environment variables in `.env` (e.g. mnemonic, API URL)
 - `astrid status` — Show status and health of all services
-- `astrid health` — Show detailed health and recent logs
-- `astrid monitor [validator|redis|watchtower]` — Tail logs for a service
-- `astrid update [--compose] [--install] [--pull] [--restart]` — Update CLI, docker-compose.yml, install script, pull images, and/or restart services
+- `astrid health` — Show validator state and recent log lines
+- `astrid monitor [validator|watchtower]` — Tail logs for a service
+- `astrid update [--to <ref|sha>] [--pull] [--restart]` — Re-download the CLI, install script, and docker-compose.yml (pinned to `--to`, or the currently pinned ref), optionally pulling the latest image and restarting services
 
 ### Example Workflow
 
@@ -70,42 +68,37 @@ astrid <command> [options]
 # 1. Install (if not already done)
 bash -c "$(curl -sSfL https://raw.githubusercontent.com/astridintelligence/sn-127-install/master/install)"
 
-# 2. Set your validator mnemonic or secret seed (required)
+# 2. Set your validator mnemonic or secret seed, and SS58 address (required)
 astrid set --VALIDATOR_MNEMONIC "xxxx-xxxx-xxxx-xxxx-xxxx-xxxx-xxxx-xxxx-xxxx"
 astrid set --VALIDATOR_SECRET_SEED "0x123..."
+astrid set --VALIDATOR_SS58_ADDRESS "5YourSS58AddressHere"
 
-# 3. Set your validator display name (required)
-astrid set --VALIDATOR_DISPLAY_NAME "My Bittensor name"
-
-# 4. Start the stack
+# 3. Start the stack
 astrid start
 
-# 5. Check status
+# 4. Check status
 astrid status
 
-# 6. View logs
+# 5. View logs
 astrid monitor validator
 ```
 
 ### Updating
 
-To update the CLI and/or stack components:
+`astrid update` always refreshes the `astrid` CLI, the `install` script, and `docker-compose.yml` to the target ref (the currently pinned ref by default). Use flags to also refresh the running containers:
 
 ```sh
-# Update just the CLI
+# Refresh scripts only (no image pull, no restart)
 astrid update
 
-# Update docker-compose.yml
-astrid update --compose
+# Update to a specific ref/tag
+astrid update --to v1.2.0
 
-# Update install script
-astrid update --install
-
-# Pull latest images
+# Pull the latest validator image
 astrid update --pull
 
-# Restart services after update
-astrid update --restart
+# Pull and restart services
+astrid update --pull --restart
 ```
 
 ## Project Structure
@@ -126,12 +119,15 @@ After install, your project directory (default: `$HOME/astrid`) will contain:
 The `.env` file (created in your project directory) supports:
 
 - `VALIDATOR_MNEMONIC` or `VALIDATOR_SECRET_SEED` (required)
-- `VALIDATOR_DISPLAY_NAME` (required)
+- `VALIDATOR_SS58_ADDRESS` (required)
+- `VALIDATOR_SS58_FORMAT` (default: 42)
 - `NODE_ENV` (default: production)
-- `API_URL` (default: https://api.astrid.global/v1)
-- `REDIS_URL` (default: redis://redis:6379)
-- `HEARTBEAT_INTERVAL_MS` (default: 15000)
-- `MAX_CONCURRENT_TASKS` (default: 2)
+- `ARENA_API_URL` (default: https://arena-api.astrid.global)
+- `BITTENSOR_ENABLED` (default: true)
+- `BITTENSOR_WS_ENDPOINT` (default: Finney mainnet)
+- `BITTENSOR_WEIGHT_INTERVAL_MS` (default: 3600000)
+- `LOG_LEVEL` (default: info)
+- `SLACK_API_TOKEN`, `SLACK_CHANNEL`, `SLACK_ERROR_CHANNEL`, `SLACK_INFO_CHANNEL` (optional, for Slack alerting)
 
 You can set these with `astrid set --KEY "value"`.
 
@@ -140,12 +136,17 @@ Example `.env`:
 ```env
 VALIDATOR_MNEMONIC="your mnemonic here"
 VALIDATOR_SECRET_SEED="0x123..."
-VALIDATOR_DISPLAY_NAME="validator name"
+VALIDATOR_SS58_ADDRESS="5YourSS58AddressHere"
+VALIDATOR_SS58_FORMAT=42
+
 NODE_ENV=production
-API_URL=https://api.astrid.global/v1
-REDIS_URL=redis://redis:6379
-HEARTBEAT_INTERVAL_MS=15000
-MAX_CONCURRENT_TASKS=2
+ARENA_API_URL=https://arena-api.astrid.global
+
+BITTENSOR_ENABLED=true
+BITTENSOR_WS_ENDPOINT=wss://entrypoint-finney.opentensor.ai:443
+BITTENSOR_WEIGHT_INTERVAL_MS=3600000
+
+LOG_LEVEL=info
 ```
 
 ## Watchtower
@@ -165,11 +166,10 @@ com.centurylinklabs.watchtower.enable=true
 
 ## Cleanup
 
-To remove all services and volumes:
+To remove all services:
 
 ```sh
 astrid stop
-docker volume rm sn-127-install_redis-data
 ```
 
 ## License

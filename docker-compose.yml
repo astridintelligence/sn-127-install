@@ -1,39 +1,20 @@
 services:
-  redis:
-    image: redis:7
-    command: ["redis-server", "--appendonly", "yes"]
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis-data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
-
   validator:
     image: astridintelligence/astrid-validator:latest
     restart: unless-stopped
-    depends_on:
-      redis:
-        condition: service_healthy
     env_file:
       - .env
-    ports:
-      - "4000:4000"
     environment:
       NODE_ENV: ${NODE_ENV:-production}
-      API_URL: ${API_URL:-https://api.astrid.global/v1}
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      ARENA_API_URL: ${ARENA_API_URL:-https://arena-api.astrid.global}
       VALIDATOR_MNEMONIC: ${VALIDATOR_MNEMONIC}
       VALIDATOR_SECRET_SEED: ${VALIDATOR_SECRET_SEED}
-      VALIDATOR_DISPLAY_NAME: ${VALIDATOR_DISPLAY_NAME}
-      HEARTBEAT_INTERVAL_MS: ${HEARTBEAT_INTERVAL_MS:-15000}
-      MAX_CONCURRENT_TASKS: ${MAX_CONCURRENT_TASKS:-2}
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - /root/astrid/sandbox-workspace:/sandbox-data
+      VALIDATOR_SS58_ADDRESS: ${VALIDATOR_SS58_ADDRESS}
+      VALIDATOR_SS58_FORMAT: ${VALIDATOR_SS58_FORMAT:-42}
+      BITTENSOR_ENABLED: ${BITTENSOR_ENABLED:-true}
+      BITTENSOR_WS_ENDPOINT: ${BITTENSOR_WS_ENDPOINT:-wss://entrypoint-finney.opentensor.ai:443}
+      BITTENSOR_WEIGHT_INTERVAL_MS: ${BITTENSOR_WEIGHT_INTERVAL_MS:-3600000}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
 
@@ -44,6 +25,3 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     command: --interval 30 --cleanup --label-enable
-
-volumes:
-  redis-data:
